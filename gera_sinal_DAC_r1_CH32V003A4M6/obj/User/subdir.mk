@@ -8,21 +8,24 @@ C_SRCS += \
 ../User/ch32v00x_it.c \
 ../User/main.c \
 ../User/system_ch32v00x.c \
-../User/table_sin.c 
+../User/table_sin.c \
+../User/usart_com.c 
 
 OBJS += \
 ./User/DAC_MCP4725.o \
 ./User/ch32v00x_it.o \
 ./User/main.o \
 ./User/system_ch32v00x.o \
-./User/table_sin.o 
+./User/table_sin.o \
+./User/usart_com.o 
 
 C_DEPS += \
 ./User/DAC_MCP4725.d \
 ./User/ch32v00x_it.d \
 ./User/main.d \
 ./User/system_ch32v00x.d \
-./User/table_sin.d 
+./User/table_sin.d \
+./User/usart_com.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
