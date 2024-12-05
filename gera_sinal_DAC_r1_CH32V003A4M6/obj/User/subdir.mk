@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../User/DAC_MCP4725.c \
+../User/buffer_fifo.c \
 ../User/ch32v00x_it.c \
 ../User/main.c \
 ../User/system_ch32v00x.c \
@@ -13,6 +14,7 @@ C_SRCS += \
 
 OBJS += \
 ./User/DAC_MCP4725.o \
+./User/buffer_fifo.o \
 ./User/ch32v00x_it.o \
 ./User/main.o \
 ./User/system_ch32v00x.o \
@@ -21,6 +23,7 @@ OBJS += \
 
 C_DEPS += \
 ./User/DAC_MCP4725.d \
+./User/buffer_fifo.d \
 ./User/ch32v00x_it.d \
 ./User/main.d \
 ./User/system_ch32v00x.d \

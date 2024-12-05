@@ -6,63 +6,15 @@
  */
 
 #include "usart_com.h"
+#include "buffer_fifo.h"
 #include <ch32v00x.h>
 
 //buffer para serial in
-/* funções e estruturas para FIFO */
-
-//estrutura de controle
-typedef struct {
-	int in;
-	int out;
-	int len;
-	int full;
-	char *ar;
-}SBUFF;
-
 #define N_BUFF_SERIAL (32)
 char ar_serial_in[N_BUFF_SERIAL];
 char ar_serial_out[N_BUFF_SERIAL];
 SBUFF bf_serial_in, bf_serial_out;
 
-//inicializa buffer
-void Init_FIFO(SBUFF *b, char *AR, int len) {
-	b->ar = AR;
-	b->len = len;
-	b->in = 0;
-	b->out = 0;
-	b->full = 0;
-}
-
-//retorna numero de amotras que entraram no FIFO
-int n_sample_in_FIFO(SBUFF *b) {
-	if (b->full) return b->len;
-	return ((b->in >= b->out) ? (b->in - b->out) : (b->len - (b->out - b->in)));
-}
-
-//retorna numero de amostras livres
-int n_sample_out_FIFO(SBUFF *b) {
-	if (b->full) return 0;
-	return (b->len - n_sample_in_FIFO(b));
-}
-
-void put_sample_FIFO(SBUFF *b, char s) {
-	if (!b->full) {
-		b->ar[b->in] = s;
-		b->in++;
-		if (b->in == b->len) b->in = 0;
-	}
-	if(b->in == b->out) b->full = 1;
-
-}
-
-char get_sample_FIFO(SBUFF *b) {
-	int r = b->ar[b->out];
-	b->out++;
-	if(b->out == b->len) b->out = 0;
-	b->full = 0;
-	return r;
-}
 
 /*********************************************************************
  * @fn      USARTx_CFG
@@ -107,14 +59,16 @@ void USARTx_CFG(void)
 	NVIC_Init(&NVIC_InitStructure);
 
 	//configura buffer serial
-	Init_FIFO(&bf_serial_in, ar_serial_in,N_BUFF_SERIAL);
-	Init_FIFO(&bf_serial_out, ar_serial_out,N_BUFF_SERIAL);
+	Init_FIFO(&bf_serial_in, ar_serial_in,sizeof(char),N_BUFF_SERIAL);
+	Init_FIFO(&bf_serial_out, ar_serial_out,sizeof(char),N_BUFF_SERIAL);
 
 	USART_Cmd(USART1, ENABLE);
 }
 
 char USART_get(void) {
-	return get_sample_FIFO(&bf_serial_in);
+	char v;
+	get_sample_FIFO(&bf_serial_in,&v);
+	return v;
 }
 
 int USART_available_rx (void) {
@@ -126,7 +80,7 @@ void USART_char(char c) {
 	//USART_SendData(USART1, c);
 
 	if (n_sample_out_FIFO (&bf_serial_out) > 0) {
-		put_sample_FIFO(&bf_serial_out,c);
+		put_sample_FIFO(&bf_serial_out,&c);
 	}
 	//habilita interrupção de envio
 	USART_ITConfig(USART1, USART_IT_TXE, ENABLE);
@@ -255,7 +209,7 @@ void USART1_IRQHandler(void)
 		c = USART_ReceiveData(USART1);
 
 		if (n_sample_out_FIFO (&bf_serial_in) > 0) {
-			put_sample_FIFO(&bf_serial_in,c);
+			put_sample_FIFO(&bf_serial_in,&c);
 		}
 	}
 
@@ -263,7 +217,7 @@ void USART1_IRQHandler(void)
 	if(USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
 	{
 		if (n_sample_in_FIFO(&bf_serial_out) > 0) {
-			c = get_sample_FIFO(&bf_serial_out);
+			get_sample_FIFO(&bf_serial_out,&c);
 			USART_SendData(USART1, c);
 		}else {  //não possui dados para envio
 			USART_ITConfig(USART1, USART_IT_TXE, DISABLE);

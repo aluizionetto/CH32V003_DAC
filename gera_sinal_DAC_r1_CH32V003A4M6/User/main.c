@@ -149,8 +149,7 @@ void TIM2_IRQHandler(void)
 
 		//MCP_fast_sample_single(0, tsin((uint32_t)(freq1*9*count_s)/250));
 		//count_s++;
-		count_pin++;
-		if ((count_pin >= 10000)) {
+		if ((++count_pin >= ((a_dac)?1000:10000))) {
 			GPIO_WriteBit(GPIOC,GPIO_Pin_7,flag_pin);
 			flag_pin ^=0x01;
 			count_pin = 0;
@@ -276,6 +275,7 @@ int main(void)
 
 		if (flag_cmd) {
 			USART_str(buff_serial_in);
+			USART_str(" ");
 			processa_cmd();
 			flag_cmd = 0;
 		}
