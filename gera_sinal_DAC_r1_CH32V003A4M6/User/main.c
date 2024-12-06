@@ -18,18 +18,26 @@
 #include "DAC_MCP4725.h"
 #include "table_sin.h"
 #include "usart_com.h"
+#include "buffer_fifo.h"
 
 
 volatile uint16_t freq1 = 60;
 volatile uint16_t adv;
 volatile uint16_t state_dac = 0, a_dac = 0;
 volatile uint32_t p_sample;
+volatile uint16_t count_s = 0;
+uint16_t sample;
 
 //buffer para comando de serial
 #define LEN_BUFF_SERIAL_IN (32)
-char buff_serial_in[LEN_BUFF_SERIAL_IN]; // buffer para recepção da serial
+char buff_serial_in[LEN_BUFF_SERIAL_IN]; // buffer para recepção de comandos pela serial
 volatile int8_t buff_serial_idx = 0;
 volatile uint16_t flag_cmd = 0;
+
+//buffer para dac
+#define LEN_BUF_DAC (32)
+uint16_t ar_dac[LEN_BUF_DAC];
+SBUFF bf_dac;
 
 /* Global define */
 void ADC_Function_Init(void)
@@ -108,8 +116,9 @@ void TIM2_IRQHandler() __attribute__((interrupt));
 void TIM2_IRQHandler(void)
 {
 	static uint16_t flag_pin = 1;
-	static uint16_t count_s = 0;
 	static uint16_t count_pin = 0;
+
+	static uint16_t n,s;
 
 	//static uint16_t flag_pin;
 	if (TIM_GetITStatus(TIM2, TIM_IT_Update) == SET)
@@ -126,6 +135,7 @@ void TIM2_IRQHandler(void)
 			}
 			break;
 		case 1:
+#if 0
 			p_sample = (uint32_t)(freq1*9*count_s)/250;
 			//reinicia contagem de amostras para inicio do ciclo
 			if (p_sample >= (2*NTABLE_SN_2)) {
@@ -134,7 +144,14 @@ void TIM2_IRQHandler(void)
 			}
 			MCP_fast_sample(tsin(p_sample));
 			count_s++;
-
+#else
+			//verifica se possui amostras no buffer
+			n = n_sample_in_FIFO(&bf_dac);
+			if(n > 0) {
+				get_sample_FIFO(&bf_dac, &s);
+				MCP_fast_sample(s);
+			}
+#endif
 
 
 			if (!a_dac) {
@@ -244,6 +261,9 @@ int main(void)
 	ADC_Function_Init();
 	MCP_Init(0);  //MCP4725 com A0 = 0;
 
+	//init buffer do dac
+	Init_FIFO(&bf_dac, ar_dac, sizeof(uint16_t),LEN_BUF_DAC);
+
 	GPIO_WriteBit(GPIOC,GPIO_Pin_7,1);
 	TIM2_INT_Init(100-1,48-1);
 
@@ -273,11 +293,25 @@ int main(void)
 			}
 		}
 
+		//verifica recepcao de comandos
 		if (flag_cmd) {
 			USART_str(buff_serial_in);
 			USART_str(" ");
 			processa_cmd();
 			flag_cmd = 0;
+		}
+
+		//calcula amostras para buffer do dac
+		if(n_sample_out_FIFO(&bf_dac) > 0) {
+			p_sample = (uint32_t)(freq1*9*count_s)/250;
+			//reinicia contagem de amostras para inicio do ciclo
+			if (p_sample >= (2*NTABLE_SN_2)) {
+				count_s = 0;
+				p_sample = 0;
+			}
+			sample = tsin(p_sample);
+			put_sample_FIFO(&bf_dac, &sample);
+			count_s++;
 		}
 
 	}
